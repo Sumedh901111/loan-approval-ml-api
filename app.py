@@ -159,6 +159,14 @@ def predict(data: LoanInput):
 
     except Exception as e:
         return {"error": str(e)}
+        
+@app.get("/")
+def home():
+    return {
+        "message": "Loan Approval Prediction API is running",
+        "docs": "/docs",
+        "endpoint": "/predict"
+    }
 
 # ---------------------------
 # Render port
