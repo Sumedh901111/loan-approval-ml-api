@@ -2,12 +2,13 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 import pandas as pd
-# import mysql.connector
 import sqlite3
 
-# Load model
-
+# ---------------------------
+# Load model and feature importance
+# ---------------------------
 model = joblib.load("loan_model.pkl")
+
 feature_importance = pd.read_csv("feature_importance.csv")
 feature_importance["Feature"] = (
     feature_importance["Feature"]
@@ -15,25 +16,16 @@ feature_importance["Feature"] = (
     .str.replace("cat__", "", regex=False)
 )
 
-
+# ---------------------------
 # FastAPI app
-
+# ---------------------------
 app = FastAPI()
 
-
-# MySQL connection
-# db = mysql.connector.connect(
-#     host="localhost",
-#     user="root",
-#     password="password",
-#     database="loan_db"
-# )
-# cursor = db.cursor()
-
-# Using SQLite for simplicity
+# ---------------------------
+# SQLite connection (cloud-safe)
+# ---------------------------
 conn = sqlite3.connect("predictions.db", check_same_thread=False)
 cursor = conn.cursor()
-
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS predictions (
@@ -61,8 +53,9 @@ CREATE TABLE IF NOT EXISTS predictions (
 """)
 conn.commit()
 
-# Input schema (ALL features)
-
+# ---------------------------
+# Input schema
+# ---------------------------
 class LoanInput(BaseModel):
     Applicant_Income: float
     Coapplicant_Income: float
@@ -83,34 +76,32 @@ class LoanInput(BaseModel):
     Total_Income: float
 
 # ---------------------------
-# Prediction API
+# Prediction endpoint
 # ---------------------------
 @app.post("/predict")
 def predict(data: LoanInput):
 
-    # Convert input → DataFrame
+    # Convert input to DataFrame
     df = pd.DataFrame([data.dict()])
 
-    # Predict
-    proba = model.predict_proba(df)[0][1]   # probability of class 1 (Yes)
-    pred = int(proba >= 0.4)                # threshold = 0.4
+    # Predict probability
+    proba = model.predict_proba(df)[0][1]
+    pred = int(proba >= 0.4)
     result = "Yes" if pred == 1 else "No"
+
     top_factors = feature_importance["Feature"].head(3).tolist()
 
-
-
-    # Save to MySQL
+    # Save to SQLite
     sql = """
-INSERT INTO predictions (
-    Applicant_Income, Coapplicant_Income, Employment_Status, Age,
-    Marital_Status, Dependents, Credit_Score, Existing_Loans,
-    DTI_Ratio, Savings, Collateral_Value, Loan_Amount, Loan_Term,
-    Loan_Purpose, Property_Area, Education_Level, Total_Income,
-    prediction, probability
-)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-"""
-
+    INSERT INTO predictions (
+        Applicant_Income, Coapplicant_Income, Employment_Status, Age,
+        Marital_Status, Dependents, Credit_Score, Existing_Loans,
+        DTI_Ratio, Savings, Collateral_Value, Loan_Amount, Loan_Term,
+        Loan_Purpose, Property_Area, Education_Level, Total_Income,
+        prediction, probability
+    )
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """
 
     values = (
         data.Applicant_Income,
@@ -131,16 +122,21 @@ VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         data.Education_Level,
         data.Total_Income,
         result,
-        proba
+        float(proba)
     )
 
     cursor.execute(sql, values)
     conn.commit()
 
-    return {"Loan_Approved": result,
-            "Probability": round(float(proba), 3),
-            "Top_Factors": top_factors}
+    return {
+        "Loan_Approved": result,
+        "Probability": round(float(proba), 3),
+        "Top_Factors": top_factors
+    }
 
+# ---------------------------
+# Run locally (not used on Render)
+# ---------------------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
