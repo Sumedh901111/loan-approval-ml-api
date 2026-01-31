@@ -24,7 +24,8 @@ app = FastAPI()
 # ---------------------------
 # SQLite connection (cloud-safe)
 # ---------------------------
-conn = sqlite3.connect("predictions.db", check_same_thread=False)
+conn = sqlite3.connect("/tmp/predictions.db", check_same_thread=False)
+
 cursor = conn.cursor()
 
 cursor.execute("""
