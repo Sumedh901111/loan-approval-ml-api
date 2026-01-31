@@ -5,22 +5,19 @@ A Machine Learning model is trained using preprocessing pipelines and deployed a
 Predictions are stored in a **SQLite database** and the API is deployed on **Render**.
 
 Live API:  
-https://loan-approval-ml-api.onrender.com  
+https://loan-approval-ml-api-1.onrender.com  
 
 Swagger UI:  
-https://loan-approval-ml-api.onrender.com/docs  
+https://loan-approval-ml-api-1.onrender.com/docs  
 
 ---
 
 ## Project Description
 
 - A dataset of loan applicants is used to train a **RandomForestClassifier**.
-- Data preprocessing includes:
-  - Handling missing values  
-  - Scaling numeric features  
-  - Encoding categorical features  
+- Data preprocessing includes handling missing values, scaling numeric features, and encoding categorical features.
 - A pipeline combines preprocessing and model training.
-- The trained model is saved and loaded inside a FastAPI application.
+- The trained model is saved and loaded in a FastAPI application.
 - Users send applicant details as JSON and receive:
   - Loan approval decision (Yes/No)  
   - Probability score  
@@ -39,13 +36,7 @@ Output: Loan approval result with probability.
 
 ## Technologies Used
 
-- Python  
-- Pandas  
-- Scikit-learn  
-- FastAPI  
-- SQLite  
-- Uvicorn  
-- Render  
+Python, Pandas, Scikit-learn, FastAPI, SQLite, Uvicorn, Render.
 
 ---
 
