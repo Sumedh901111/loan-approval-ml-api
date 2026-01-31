@@ -3,9 +3,10 @@ from pydantic import BaseModel
 import joblib
 import pandas as pd
 import sqlite3
+import os
 
 # ---------------------------
-# Load model and feature importance
+# Load model
 # ---------------------------
 model = joblib.load("loan_model.pkl")
 
@@ -16,15 +17,36 @@ feature_importance["Feature"] = (
     .str.replace("cat__", "", regex=False)
 )
 
+# IMPORTANT: feature order used during training
+MODEL_COLUMNS = [
+    "Applicant_Income",
+    "Coapplicant_Income",
+    "Employment_Status",
+    "Age",
+    "Marital_Status",
+    "Dependents",
+    "Credit_Score",
+    "Existing_Loans",
+    "DTI_Ratio",
+    "Savings",
+    "Collateral_Value",
+    "Loan_Amount",
+    "Loan_Term",
+    "Loan_Purpose",
+    "Property_Area",
+    "Education_Level",
+    "Total_Income"
+]
+
 # ---------------------------
 # FastAPI app
 # ---------------------------
 app = FastAPI()
 
 # ---------------------------
-# SQLite (must use /tmp on Render)
+# SQLite DB (Render-safe)
 # ---------------------------
-conn = sqlite3.connect("/tmp/predictions.db", check_same_thread=False)
+conn = sqlite3.connect("predictions.db", check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -76,77 +98,72 @@ class LoanInput(BaseModel):
     Total_Income: float
 
 # ---------------------------
-# Prediction endpoint
+# Prediction API
 # ---------------------------
 @app.post("/predict")
 def predict(data: LoanInput):
+    try:
+        # Convert to DataFrame with correct order
+        df = pd.DataFrame([data.dict()])
+        df = df[MODEL_COLUMNS]
 
-    # Normalize categorical values (IMPORTANT)
-    data_dict = data.dict()
-    for col in [
-        "Employment_Status",
-        "Marital_Status",
-        "Loan_Purpose",
-        "Property_Area",
-        "Education_Level"
-    ]:
-        data_dict[col] = data_dict[col].strip().title()
+        # Predict
+        proba = model.predict_proba(df)[0][1]
+        pred = int(proba >= 0.4)
+        result = "Yes" if pred == 1 else "No"
 
-    df = pd.DataFrame([data_dict])
+        top_factors = feature_importance["Feature"].head(3).tolist()
 
-    # Predict
-    proba = model.predict_proba(df)[0][1]
-    pred = int(proba >= 0.4)
-    result = "Yes" if pred == 1 else "No"
+        # Save to DB
+        sql = """
+        INSERT INTO predictions (
+            Applicant_Income, Coapplicant_Income, Employment_Status, Age,
+            Marital_Status, Dependents, Credit_Score, Existing_Loans,
+            DTI_Ratio, Savings, Collateral_Value, Loan_Amount, Loan_Term,
+            Loan_Purpose, Property_Area, Education_Level, Total_Income,
+            prediction, probability
+        )
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """
 
-    top_factors = feature_importance["Feature"].head(3).tolist()
+        values = (
+            data.Applicant_Income,
+            data.Coapplicant_Income,
+            data.Employment_Status,
+            data.Age,
+            data.Marital_Status,
+            data.Dependents,
+            data.Credit_Score,
+            data.Existing_Loans,
+            data.DTI_Ratio,
+            data.Savings,
+            data.Collateral_Value,
+            data.Loan_Amount,
+            data.Loan_Term,
+            data.Loan_Purpose,
+            data.Property_Area,
+            data.Education_Level,
+            data.Total_Income,
+            result,
+            float(proba)
+        )
 
-    # Save to SQLite
-    sql = """
-    INSERT INTO predictions (
-        Applicant_Income, Coapplicant_Income, Employment_Status, Age,
-        Marital_Status, Dependents, Credit_Score, Existing_Loans,
-        DTI_Ratio, Savings, Collateral_Value, Loan_Amount, Loan_Term,
-        Loan_Purpose, Property_Area, Education_Level, Total_Income,
-        prediction, probability
-    )
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    """
+        cursor.execute(sql, values)
+        conn.commit()
 
-    values = (
-        data_dict["Applicant_Income"],
-        data_dict["Coapplicant_Income"],
-        data_dict["Employment_Status"],
-        data_dict["Age"],
-        data_dict["Marital_Status"],
-        data_dict["Dependents"],
-        data_dict["Credit_Score"],
-        data_dict["Existing_Loans"],
-        data_dict["DTI_Ratio"],
-        data_dict["Savings"],
-        data_dict["Collateral_Value"],
-        data_dict["Loan_Amount"],
-        data_dict["Loan_Term"],
-        data_dict["Loan_Purpose"],
-        data_dict["Property_Area"],
-        data_dict["Education_Level"],
-        data_dict["Total_Income"],
-        result,
-        float(proba)
-    )
+        return {
+            "Loan_Approved": result,
+            "Probability": round(float(proba), 3),
+            "Top_Factors": top_factors
+        }
 
-    cursor.execute(sql, values)
-    conn.commit()
-
-    return {
-        "Loan_Approved": result,
-        "Probability": round(float(proba), 3),
-        "Top_Factors": top_factors
-    }
+    except Exception as e:
+        return {"error": str(e)}
 
 # ---------------------------
-# Run locally
+# Render port
 # ---------------------------
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
