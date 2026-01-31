@@ -22,10 +22,9 @@ feature_importance["Feature"] = (
 app = FastAPI()
 
 # ---------------------------
-# SQLite connection (cloud-safe)
+# SQLite (must use /tmp on Render)
 # ---------------------------
 conn = sqlite3.connect("/tmp/predictions.db", check_same_thread=False)
-
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -82,10 +81,20 @@ class LoanInput(BaseModel):
 @app.post("/predict")
 def predict(data: LoanInput):
 
-    # Convert input to DataFrame
-    df = pd.DataFrame([data.dict()])
+    # Normalize categorical values (IMPORTANT)
+    data_dict = data.dict()
+    for col in [
+        "Employment_Status",
+        "Marital_Status",
+        "Loan_Purpose",
+        "Property_Area",
+        "Education_Level"
+    ]:
+        data_dict[col] = data_dict[col].strip().title()
 
-    # Predict probability
+    df = pd.DataFrame([data_dict])
+
+    # Predict
     proba = model.predict_proba(df)[0][1]
     pred = int(proba >= 0.4)
     result = "Yes" if pred == 1 else "No"
@@ -105,23 +114,23 @@ def predict(data: LoanInput):
     """
 
     values = (
-        data.Applicant_Income,
-        data.Coapplicant_Income,
-        data.Employment_Status,
-        data.Age,
-        data.Marital_Status,
-        data.Dependents,
-        data.Credit_Score,
-        data.Existing_Loans,
-        data.DTI_Ratio,
-        data.Savings,
-        data.Collateral_Value,
-        data.Loan_Amount,
-        data.Loan_Term,
-        data.Loan_Purpose,
-        data.Property_Area,
-        data.Education_Level,
-        data.Total_Income,
+        data_dict["Applicant_Income"],
+        data_dict["Coapplicant_Income"],
+        data_dict["Employment_Status"],
+        data_dict["Age"],
+        data_dict["Marital_Status"],
+        data_dict["Dependents"],
+        data_dict["Credit_Score"],
+        data_dict["Existing_Loans"],
+        data_dict["DTI_Ratio"],
+        data_dict["Savings"],
+        data_dict["Collateral_Value"],
+        data_dict["Loan_Amount"],
+        data_dict["Loan_Term"],
+        data_dict["Loan_Purpose"],
+        data_dict["Property_Area"],
+        data_dict["Education_Level"],
+        data_dict["Total_Income"],
         result,
         float(proba)
     )
@@ -136,7 +145,7 @@ def predict(data: LoanInput):
     }
 
 # ---------------------------
-# Run locally (not used on Render)
+# Run locally
 # ---------------------------
 if __name__ == "__main__":
     import uvicorn
