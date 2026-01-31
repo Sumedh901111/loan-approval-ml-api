@@ -1,38 +1,59 @@
-# Loan Approval ML API
+Loan Approval Prediction API
 
-An end-to-end Machine Learning project that predicts whether a loan should be approved based on applicant details.  
-The model is served using FastAPI and provides probability-based decisions with explainability.
+This project predicts whether a loan will be approved based on applicant financial and personal details.
+A Machine Learning model is trained using preprocessing pipelines and deployed as a REST API using FastAPI.
+Predictions are stored in a SQLite database and the API is deployed on Render.
 
----
+Live API:
+https://loan-approval-ml-api.onrender.com
 
-## 🚀 Features
-- Trained ML classification model (Random Forest)
-- REST API built with FastAPI
-- Probability-based threshold decision
-- Top feature importance returned for explainability
-- Ready for deployment
+Swagger UI:
+https://loan-approval-ml-api.onrender.com/docs
 
----
+Model:
+RandomForestClassifier with preprocessing (imputation, scaling, encoding).
 
-## 🧠 Tech Stack
-- Python
-- Scikit-learn
-- Pandas
-- FastAPI
-- Uvicorn
+Features:
+Applicant_Income, Coapplicant_Income, Employment_Status, Age, Marital_Status, Dependents, Credit_Score, Existing_Loans, DTI_Ratio, Savings, Collateral_Value, Loan_Amount, Loan_Term, Loan_Purpose, Property_Area, Education_Level, Total_Income.
 
----
+Target:
+Loan_Approved (Yes / No)
 
-## 📦 Project Files
-- `app.py` → FastAPI application
-- `loan_model.pkl` → trained ML model
-- `feature_importance.csv` → top important features
-- `requirements.txt` → dependencies
+Endpoint:
+POST /predict
 
----
+Sample request:
 
-## ▶️ How to Run Locally
+{
+"Applicant_Income": 5000,
+"Coapplicant_Income": 2000,
+"Employment_Status": "Salaried",
+"Age": 35,
+"Marital_Status": "Married",
+"Dependents": 1,
+"Credit_Score": 700,
+"Existing_Loans": 1,
+"DTI_Ratio": 0.3,
+"Savings": 8000,
+"Collateral_Value": 30000,
+"Loan_Amount": 15000,
+"Loan_Term": 60,
+"Loan_Purpose": "Car",
+"Property_Area": "Urban",
+"Education_Level": "Graduate",
+"Total_Income": 7000
+}
 
-```bash
-pip install -r requirements.txt
-uvicorn app:app --reload
+Sample response:
+
+{
+"Loan_Approved": "No",
+"Probability": 0.39,
+"Top_Factors": ["Credit_Score", "DTI_Ratio", "Applicant_Income"]
+}
+
+Tech stack:
+Python, Pandas, Scikit-learn, FastAPI, SQLite, Uvicorn, Render.
+
+Author:
+Sumedh Bodke
