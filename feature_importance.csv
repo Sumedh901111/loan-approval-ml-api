@@ -1,0 +1,11 @@
+Feature,Importance
+num__Credit_Score,0.28332499166952624
+num__DTI_Ratio,0.2794599774428853
+num__Applicant_Income,0.06969359114634076
+num__Loan_Amount,0.059230124549461076
+num__Total_Income,0.05595965250788331
+num__Collateral_Value,0.03975150866097593
+num__Savings,0.03742812760612362
+num__Coapplicant_Income,0.03631169751639741
+num__Age,0.0328280468482175
+num__Loan_Term,0.020871359841521896
